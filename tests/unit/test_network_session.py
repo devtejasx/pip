@@ -17,9 +17,11 @@ from urllib.request import getproxies
 import pytest
 
 from pip._vendor import requests
+from pip._vendor.requests.models import PreparedRequest
 from pip._vendor.requests.utils import select_proxy
 from pip._vendor.urllib3.connection import DummyConnection
 from pip._vendor.urllib3.connectionpool import HTTPSConnectionPool
+from pip._vendor.urllib3.util.ssl_ import create_urllib3_context, resolve_cert_reqs
 
 from pip import __version__
 from pip._internal.cli.index_command import SessionCommandMixin
@@ -35,6 +37,8 @@ from pip._internal.exceptions import (
 from pip._internal.models.link import Link
 from pip._internal.network.session import (
     HTTPAdapter,
+    InsecureCacheControlAdapter,
+    InsecureHTTPAdapter,
     PipSession,
     user_agent,
 )
@@ -189,6 +193,35 @@ class TestPipSession:
         # Check that the cache is enabled.
         assert hasattr(session.adapters["http://example.com/"], "cache")
         assert hasattr(session.adapters["https://example.com/"], "cache")
+
+    @pytest.mark.parametrize("cache", [None, "test-cache"])
+    def test_trusted_hosts_adapter_builds_unverified_pool(
+        self, tmpdir: Path, cache: str | None
+    ) -> None:
+        """The pool itself must be built unverified, not just the connection.
+
+        Building the pool with ``verify=True`` and only downgrading the
+        connection afterwards leaves an SSL context with ``check_hostname``
+        enabled next to ``cert_reqs=CERT_NONE``, which ``ssl`` rejects.
+        """
+        session = PipSession(
+            cache=os.fspath(tmpdir.joinpath(cache)) if cache else None,
+            trusted_hosts=["example.com"],
+        )
+        adapter = session.get_adapter("https://example.com/simple/")
+        assert isinstance(adapter, (InsecureHTTPAdapter, InsecureCacheControlAdapter))
+
+        request = PreparedRequest()
+        request.prepare(method="GET", url="https://example.com/simple/")
+
+        pool = adapter.get_connection_with_tls_context(request, verify=True)
+        assert pool.cert_reqs == "CERT_NONE"
+
+        # Mirror how urllib3 sets up TLS for a connection from this pool.
+        cert_reqs = resolve_cert_reqs(pool.cert_reqs)
+        context = create_urllib3_context(cert_reqs=cert_reqs)
+        assert context.check_hostname is False
+        context.verify_mode = cert_reqs
 
     def test_add_trusted_host(self) -> None:
         # Leave a gap to test how the ordering is affected.

@@ -30,7 +30,7 @@ from pip._vendor.requests.adapters import DEFAULT_POOLBLOCK, BaseAdapter
 from pip._vendor.requests.adapters import HTTPAdapter as _BaseHTTPAdapter
 from pip._vendor.requests.models import PreparedRequest, Response
 from pip._vendor.requests.structures import CaseInsensitiveDict
-from pip._vendor.urllib3.connectionpool import ConnectionPool
+from pip._vendor.urllib3.connectionpool import ConnectionPool, HTTPConnectionPool
 from pip._vendor.urllib3.exceptions import InsecureRequestWarning
 
 from pip import __version__
@@ -281,7 +281,30 @@ class CacheControlAdapter(_SSLContextAdapterMixin, _BaseCacheControlAdapter):
     pass
 
 
-class InsecureHTTPAdapter(HTTPAdapter):
+class _InsecureAdapterMixin:
+    """Mixin that disables TLS verification for an HTTP adapter.
+
+    ``HTTPAdapter.send()`` first builds the connection pool via
+    ``get_connection_with_tls_context()`` and only afterwards adjusts the
+    connection via ``cert_verify()``. Forcing ``verify=False`` in the latter
+    alone leaves the pool keyed (and its SSL context configured) for
+    ``CERT_REQUIRED``, so the connection ends up with ``cert_reqs=CERT_NONE``
+    while ``check_hostname`` is still enabled. ``ssl`` rejects that
+    combination with a ``ValueError``. Overriding both keeps the pool and the
+    connection in agreement. https://github.com/pypa/pip/issues/13624
+    """
+
+    def get_connection_with_tls_context(
+        self,
+        request: PreparedRequest,
+        verify: bool | str,
+        proxies: dict[str, str] | None = None,
+        cert: str | tuple[str, str] | None = None,
+    ) -> HTTPConnectionPool:
+        return super().get_connection_with_tls_context(  # type: ignore[misc]
+            request=request, verify=False, proxies=proxies, cert=cert
+        )
+
     def cert_verify(
         self,
         conn: ConnectionPool,
@@ -289,18 +312,17 @@ class InsecureHTTPAdapter(HTTPAdapter):
         verify: bool | str,
         cert: str | tuple[str, str] | None,
     ) -> None:
-        super().cert_verify(conn=conn, url=url, verify=False, cert=cert)
+        super().cert_verify(  # type: ignore[misc]
+            conn=conn, url=url, verify=False, cert=cert
+        )
 
 
-class InsecureCacheControlAdapter(CacheControlAdapter):
-    def cert_verify(
-        self,
-        conn: ConnectionPool,
-        url: str,
-        verify: bool | str,
-        cert: str | tuple[str, str] | None,
-    ) -> None:
-        super().cert_verify(conn=conn, url=url, verify=False, cert=cert)
+class InsecureHTTPAdapter(_InsecureAdapterMixin, HTTPAdapter):
+    pass
+
+
+class InsecureCacheControlAdapter(_InsecureAdapterMixin, CacheControlAdapter):
+    pass
 
 
 class PipSession(requests.Session):
