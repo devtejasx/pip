@@ -321,24 +321,30 @@ class ExternallyManagedEnvironment(DiagnosticPipError):
     and displayed when the error is bubbled up to the user.
 
     :param error: The error message read from ``EXTERNALLY-MANAGED``.
+    :param note: An extra note shown before the standard one, used to explain
+        why pip is looking at a system environment when the user expected a
+        virtual environment.
     """
 
     reference = "externally-managed-environment"
 
-    def __init__(self, error: str | None) -> None:
+    def __init__(self, error: str | None, *, note: str | None = None) -> None:
         if error is None:
             context = Text(_DEFAULT_EXTERNALLY_MANAGED_ERROR)
         else:
             context = Text(error)
+        note_stmt = (
+            "If you believe this is a mistake, please contact your "
+            "Python installation or OS distribution provider. "
+            "You can override this, at the risk of breaking your Python "
+            "installation or OS, by passing --break-system-packages."
+        )
+        if note is not None:
+            note_stmt = f"{note} {note_stmt}"
         super().__init__(
             message="This environment is externally managed",
             context=context,
-            note_stmt=(
-                "If you believe this is a mistake, please contact your "
-                "Python installation or OS distribution provider. "
-                "You can override this, at the risk of breaking your Python "
-                "installation or OS, by passing --break-system-packages."
-            ),
+            note_stmt=note_stmt,
             hint_stmt=Text("See PEP 668 for the detailed specification."),
         )
 
@@ -368,6 +374,8 @@ class ExternallyManagedEnvironment(DiagnosticPipError):
     def from_config(
         cls,
         config: pathlib.Path | str,
+        *,
+        note: str | None = None,
     ) -> ExternallyManagedEnvironment:
         parser = configparser.ConfigParser(interpolation=None)
         try:
@@ -375,7 +383,7 @@ class ExternallyManagedEnvironment(DiagnosticPipError):
             section = parser["externally-managed"]
             for key in cls._iter_externally_managed_error_keys():
                 with contextlib.suppress(KeyError):
-                    return cls(section[key])
+                    return cls(section[key], note=note)
         except KeyError:
             pass
         except (OSError, UnicodeDecodeError, configparser.ParsingError):
@@ -383,7 +391,7 @@ class ExternallyManagedEnvironment(DiagnosticPipError):
 
             exc_info = logger.isEnabledFor(VERBOSE)
             logger.warning("Failed to read %s", config, exc_info=exc_info)
-        return cls(None)
+        return cls(None, note=note)
 
 
 class InvalidInstalledPackage(DiagnosticPipError):

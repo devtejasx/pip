@@ -31,6 +31,7 @@ from pip._internal.utils.glibc import (
 from pip._internal.utils.hashes import Hashes, MissingHashes
 from pip._internal.utils.misc import (
     HiddenText,
+    _inactive_virtualenv_note,
     build_netloc,
     build_url_from_netloc,
     display_path,
@@ -52,6 +53,37 @@ from pip._internal.utils.misc import (
     split_auth_netloc_from_url,
     tabulate,
 )
+
+
+class TestInactiveVirtualenvNote:
+    """The note that explains an externally-managed error inside a venv.
+
+    An interpreter ignores a virtual environment whose pyvenv.cfg it cannot
+    read, so VIRTUAL_ENV can point at an environment that is not in effect --
+    which is what makes "externally-managed-environment" confusing there.
+    """
+
+    def test_no_virtual_env_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("VIRTUAL_ENV", raising=False)
+
+        assert _inactive_virtualenv_note() is None
+
+    def test_empty_virtual_env_is_ignored(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("VIRTUAL_ENV", "")
+
+        assert _inactive_virtualenv_note() is None
+
+    def test_names_both_prefixes(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("VIRTUAL_ENV", "/srv/app/.venv")
+
+        note = _inactive_virtualenv_note()
+
+        assert note is not None
+        assert "/srv/app/.venv" in note
+        assert sys.prefix in note
+        assert "pyvenv.cfg" in note
 
 
 class Tests_EgglinkPath:

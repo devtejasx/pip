@@ -1,0 +1,5 @@
+When the ``externally-managed-environment`` error is raised while ``VIRTUAL_ENV``
+is set, say so and name both the active virtual environment and the prefix pip is
+actually running under. An interpreter ignores a virtual environment whose
+``pyvenv.cfg`` it cannot read, which made the error name an environment the user
+never meant to install into.

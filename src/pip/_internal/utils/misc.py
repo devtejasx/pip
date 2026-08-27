@@ -637,6 +637,28 @@ def protect_pip_from_modification_on_windows(modifying_pip: bool) -> None:
         )
 
 
+def _inactive_virtualenv_note() -> str | None:
+    """Explain a ``VIRTUAL_ENV`` that this interpreter is not running under.
+
+    An interpreter silently ignores a virtual environment whose ``pyvenv.cfg``
+    it cannot read -- for example when the directory holding it lost its
+    execute bit -- leaving ``sys.prefix`` at the base prefix. Everything looks
+    activated from the shell, but pip is working on the system installation,
+    so the externally-managed error names an environment the user did not
+    mean to touch. Only call this once the environment is known not to be a
+    virtualenv.
+    """
+    active = os.environ.get("VIRTUAL_ENV")
+    if not active:
+        return None
+    return (
+        f"VIRTUAL_ENV is set to {active}, but this interpreter is running "
+        f"under {sys.prefix}, so that virtual environment is not in effect. "
+        f"Check that it was created successfully and that its pyvenv.cfg is "
+        f"readable."
+    )
+
+
 def check_externally_managed() -> None:
     """Check whether the current environment is externally managed.
 
@@ -649,7 +671,9 @@ def check_externally_managed() -> None:
     marker = os.path.join(sysconfig.get_path("stdlib"), "EXTERNALLY-MANAGED")
     if not os.path.isfile(marker):
         return
-    raise ExternallyManagedEnvironment.from_config(marker)
+    raise ExternallyManagedEnvironment.from_config(
+        marker, note=_inactive_virtualenv_note()
+    )
 
 
 def is_console_interactive() -> bool:

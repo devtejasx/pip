@@ -463,6 +463,27 @@ class TestExternallyManagedEnvironment:
         marker.touch()
         return marker
 
+    def test_note_is_prepended(self, marker: pathlib.Path) -> None:
+        exc = ExternallyManagedEnvironment.from_config(marker, note="Look here.")
+
+        assert isinstance(exc.note_stmt, str)
+        assert exc.note_stmt.startswith("Look here. If you believe this is a mistake")
+
+    def test_note_is_optional(self, marker: pathlib.Path) -> None:
+        exc = ExternallyManagedEnvironment.from_config(marker)
+
+        assert isinstance(exc.note_stmt, str)
+        assert exc.note_stmt.startswith("If you believe this is a mistake")
+
+    def test_note_survives_a_configured_error(self, marker: pathlib.Path) -> None:
+        marker.write_text("[externally-managed]\nError=Use apt.", encoding="utf8")
+
+        exc = ExternallyManagedEnvironment.from_config(marker, note="Look here.")
+
+        assert str(exc.context) == "Use apt."
+        assert isinstance(exc.note_stmt, str)
+        assert exc.note_stmt.startswith("Look here. ")
+
     def test_invalid_config_format(
         self,
         caplog: pytest.LogCaptureFixture,
