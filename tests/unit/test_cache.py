@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 from typing import NoReturn
@@ -7,6 +8,7 @@ import pytest
 from pip._vendor.packaging.tags import Tag, interpreter_name, interpreter_version
 
 from pip._internal.cache import SimpleWheelCache, WheelCache, _hash_dict
+from pip._internal.models.direct_url import ArchiveInfo, DirectUrl
 from pip._internal.models.link import Link
 from pip._internal.utils.misc import ensure_dir
 from pip._internal.utils.urls import path_to_url
@@ -152,3 +154,51 @@ def test_wheel_cache_entry_none_for_existing_directory(tmpdir: Path) -> None:
 
     assert wc.get_cache_entry(link, "example", supported_tags) is None
     assert wc.get(link, "example", supported_tags) is link
+
+
+def test_record_download_origin_authenticated_url_is_not_a_mismatch(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Re-recording the same authenticated archive is not a mismatch.
+
+    origin.json stores the URL with its credentials stripped, per PEP 610, so
+    comparing it against the raw in-memory URL flagged every authenticated
+    download as a cache corruption.
+    """
+    download_info = DirectUrl(
+        url="https://user:SUPERSECRET@example.test/pkg.tar.gz",
+        archive_info=ArchiveInfo(),
+    )
+    cache_dir = os.fspath(tmp_path)
+
+    WheelCache.record_download_origin(cache_dir, download_info)
+    with caplog.at_level(logging.WARNING):
+        WheelCache.record_download_origin(cache_dir, download_info)
+
+    assert caplog.records == []
+
+
+def test_record_download_origin_mismatch_warning_redacts_credentials(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A genuine mismatch must not print the download URL's password."""
+    cache_dir = os.fspath(tmp_path)
+    WheelCache.record_download_origin(
+        cache_dir,
+        DirectUrl(url="https://example.test/old.tar.gz", archive_info=ArchiveInfo()),
+    )
+
+    with caplog.at_level(logging.WARNING):
+        WheelCache.record_download_origin(
+            cache_dir,
+            DirectUrl(
+                url="https://user:SUPERSECRET@example.test/new.tar.gz",
+                archive_info=ArchiveInfo(),
+            ),
+        )
+
+    assert len(caplog.records) == 1
+    message = caplog.records[0].getMessage()
+    assert "does not match download URL" in message
+    assert "SUPERSECRET" not in message
+    assert "https://example.test/new.tar.gz" in message

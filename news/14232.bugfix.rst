@@ -1,0 +1,2 @@
+Stop the wheel cache origin mismatch warning from reporting a false
+mismatch for authenticated URLs and from printing their credentials.
