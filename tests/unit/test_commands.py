@@ -1,3 +1,4 @@
+import logging
 import os
 from collections.abc import Callable
 from unittest import mock
@@ -156,6 +157,48 @@ def test_install_pip_version_check_skipped_when_pip_is_a_requirement(
     with command.pip_version_check(options, ["some-other-pkg"]):
         pass
     mock_version_check.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "exc, expected",
+    [
+        (
+            OSError(2, "No such file or directory", "/nonexistent/pip-cache"),
+            "FileNotFoundError: [Errno 2] No such file or directory: "
+            "'/nonexistent/pip-cache'",
+        ),
+        (ValueError("bad response"), "ValueError: bad response"),
+        # An exception with no message still names its type.
+        (RuntimeError(), "RuntimeError"),
+    ],
+)
+@mock.patch("pip._internal.cli.index_command._pip_self_version_check_fetch")
+def test_pip_version_check_warning_names_the_cause(
+    mock_version_check: mock.Mock,
+    exc: Exception,
+    expected: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The warning has to say why the check failed.
+
+    Otherwise a local problem, such as an unreachable PIP_CACHE_DIR, reads
+    as a transient network error. See #13352.
+    """
+    mock_version_check.side_effect = exc
+
+    command = create_command("install")
+    options = command.parser.get_default_values()
+    options.disable_pip_version_check = False
+    options.no_index = False
+
+    with caplog.at_level(logging.WARNING):
+        with command.pip_version_check(options, ["some-other-pkg"]):
+            pass
+
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert warnings == [
+        f"There was an error checking the latest version of pip: {expected}"
+    ]
 
 
 def test_requirement_commands() -> None:

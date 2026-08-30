@@ -156,6 +156,19 @@ def _pip_self_version_check_emit(upgrade_prompt: UpgradePrompt | None) -> None:
     pip_self_version_check_emit(upgrade_prompt)
 
 
+def _log_self_version_check_error(exc: Exception) -> None:
+    """Warn that the pip version check failed, and say why.
+
+    Without the reason, a local problem such as an unreachable
+    ``PIP_CACHE_DIR`` is indistinguishable from a transient network
+    failure, and the cause is only visible under ``--debug``.
+    """
+    detail = str(exc).strip()
+    reason = f"{type(exc).__name__}: {detail}" if detail else type(exc).__name__
+    logger.warning("There was an error checking the latest version of pip: %s", reason)
+    logger.debug("See below for error", exc_info=True)
+
+
 class IndexGroupCommand(Command, SessionCommandMixin):
     """
     Abstract base class for commands with the index_group options.
@@ -203,15 +216,13 @@ class IndexGroupCommand(Command, SessionCommandMixin):
             )
             with session:
                 upgrade_prompt = _pip_self_version_check_fetch(session, options)
-        except Exception:
-            logger.warning("There was an error checking the latest version of pip.")
-            logger.debug("See below for error", exc_info=True)
+        except Exception as exc:
+            _log_self_version_check_error(exc)
 
         try:
             yield
         finally:
             try:
                 _pip_self_version_check_emit(upgrade_prompt)
-            except Exception:
-                logger.warning("There was an error checking the latest version of pip.")
-                logger.debug("See below for error", exc_info=True)
+            except Exception as exc:
+                _log_self_version_check_error(exc)

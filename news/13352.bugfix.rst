@@ -1,0 +1,2 @@
+Say why the pip self-version check failed. An unreachable ``PIP_CACHE_DIR``
+no longer looks like a transient network error.
