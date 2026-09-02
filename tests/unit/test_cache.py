@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 from typing import NoReturn
@@ -7,6 +8,7 @@ import pytest
 from pip._vendor.packaging.tags import Tag, interpreter_name, interpreter_version
 
 from pip._internal.cache import SimpleWheelCache, WheelCache, _hash_dict
+from pip._internal.models.direct_url import ArchiveInfo, DirectUrl
 from pip._internal.models.link import Link
 from pip._internal.utils.misc import ensure_dir
 from pip._internal.utils.urls import path_to_url
@@ -152,3 +154,53 @@ def test_wheel_cache_entry_none_for_existing_directory(tmpdir: Path) -> None:
 
     assert wc.get_cache_entry(link, "example", supported_tags) is None
     assert wc.get(link, "example", supported_tags) is link
+
+
+def test_record_download_origin_does_not_warn_for_the_same_authenticated_url(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Re-recording the same URL must not report a mismatch, or leak the password.
+
+    origin.json stores the URL with any user:password stripped, so comparing it
+    against the raw in-memory URL made every authenticated download look like a
+    mismatch and printed the credentials in the warning.
+    """
+    url = "https://user:hunter2@example.test/pkg-1.0.tar.gz"
+    download_info = DirectUrl(url=url, archive_info=ArchiveInfo())
+    cache_dir = os.fspath(tmp_path)
+
+    WheelCache.record_download_origin(cache_dir, download_info)
+    with caplog.at_level(logging.WARNING):
+        WheelCache.record_download_origin(cache_dir, download_info)
+
+    assert caplog.records == []
+    stored = (tmp_path / "origin.json").read_text(encoding="utf-8")
+    assert "hunter2" not in stored
+
+
+def test_record_download_origin_warns_with_a_redacted_url(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A real mismatch is still reported, without the credentials."""
+    cache_dir = os.fspath(tmp_path)
+    WheelCache.record_download_origin(
+        cache_dir,
+        DirectUrl(
+            url="https://example.test/other-1.0.tar.gz", archive_info=ArchiveInfo()
+        ),
+    )
+
+    with caplog.at_level(logging.WARNING):
+        WheelCache.record_download_origin(
+            cache_dir,
+            DirectUrl(
+                url="https://user:hunter2@example.test/pkg-1.0.tar.gz",
+                archive_info=ArchiveInfo(),
+            ),
+        )
+
+    assert len(caplog.records) == 1
+    message = caplog.records[0].getMessage()
+    assert "does not match download URL" in message
+    assert "https://example.test/pkg-1.0.tar.gz" in message
+    assert "hunter2" not in message

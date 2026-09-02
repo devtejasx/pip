@@ -1,0 +1,4 @@
+Stop the cache origin mismatch warning from printing the credentials in a
+download URL, and from firing at all when the same authenticated URL is
+re-recorded: ``origin.json`` stores the URL with ``user:password`` stripped, so
+the comparison now uses that same form.
