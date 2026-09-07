@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import pathlib
+import sys
 from typing import Any
 from unittest import mock
 
@@ -10,7 +11,7 @@ import pytest
 
 from pip._internal.exceptions import BadCommand, InstallationError
 from pip._internal.utils.misc import HiddenText, hide_url, hide_value
-from pip._internal.utils.subprocess import CommandArgs
+from pip._internal.utils.subprocess import CommandArgs, call_subprocess
 from pip._internal.vcs import make_vcs_requirement_url
 from pip._internal.vcs.bazaar import Bazaar
 from pip._internal.vcs.git import Git, RemoteNotValidError, looks_like_hash
@@ -62,6 +63,27 @@ def test_ensure_svn_available() -> None:
 def test_make_vcs_requirement_url(args: tuple[Any, ...], expected: str) -> None:
     actual = make_vcs_requirement_url(*args)
     assert actual == expected
+
+
+def test_git_unsets_ambient_git_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """git sets these when it runs a hook, and a pip install from inside one
+    must not let them point pip's own git commands at the caller's repository.
+    """
+    names = ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"]
+    for name in names:
+        monkeypatch.setenv(name, "leaked")
+
+    output = call_subprocess(
+        [
+            sys.executable,
+            "-c",
+            f"import os; print([n for n in {names!r} if n in os.environ])",
+        ],
+        command_desc="probe for leaked git environment variables",
+        unset_environ=Git.unset_environ,
+    )
+
+    assert "[]" in output
 
 
 def test_rev_options_repr() -> None:

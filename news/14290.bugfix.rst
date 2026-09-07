@@ -1,0 +1,4 @@
+Do not let an ambient ``GIT_INDEX_FILE`` reach the ``git`` commands run for a
+``git+`` requirement. When pip runs from a git hook, the variable git exports
+there pointed the checkout of pip's own temporary clone at the caller's index
+and corrupted the caller's repository.
