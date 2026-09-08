@@ -39,6 +39,8 @@ from pip._internal.utils.misc import (
     hide_url,
     hide_value,
     is_console_interactive,
+    is_local,
+    is_path_within,
     normalize_path,
     normalize_version_info,
     parse_netloc,
@@ -352,6 +354,67 @@ class Test_display_path:
             cwd_func.return_value = fake_cwd
             got = display_path(path)
             assert got == expected
+
+
+class Test_is_path_within:
+    """A sibling that merely shares a name prefix is not inside the directory.
+
+    https://github.com/pypa/pip/pull/13871 and the tarball extraction guard in
+    utils.unpacking make the same distinction; these call sites did not.
+    """
+
+    def test_the_directory_itself(self) -> None:
+        assert is_path_within(os.path.join("a", "b"), os.path.join("a", "b"))
+
+    def test_a_child(self) -> None:
+        assert is_path_within(os.path.join("a", "b", "c"), os.path.join("a", "b"))
+
+    def test_a_grandchild(self) -> None:
+        assert is_path_within(os.path.join("a", "b", "c", "d"), os.path.join("a", "b"))
+
+    def test_a_sibling_sharing_a_prefix(self) -> None:
+        assert not is_path_within(
+            os.path.join("a", "b-old", "c"), os.path.join("a", "b")
+        )
+
+    def test_a_sibling_sharing_a_prefix_with_no_separator(self) -> None:
+        assert not is_path_within(os.path.join("a", "bc"), os.path.join("a", "b"))
+
+    def test_a_parent(self) -> None:
+        assert not is_path_within("a", os.path.join("a", "b"))
+
+    def test_a_trailing_separator_on_the_directory(self) -> None:
+        assert is_path_within(
+            os.path.join("a", "b", "c"), os.path.join("a", "b") + os.sep
+        )
+        assert not is_path_within(
+            os.path.join("a", "b-old"), os.path.join("a", "b") + os.sep
+        )
+
+
+class Test_is_local:
+    def test_everything_is_local_outside_a_virtualenv(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "pip._internal.utils.misc.running_under_virtualenv", lambda: False
+        )
+        assert is_local(os.path.join("somewhere", "else"))
+
+    def test_a_sibling_environment_is_not_local(
+        self, monkeypatch: pytest.MonkeyPatch, tmpdir: Path
+    ) -> None:
+        monkeypatch.setattr(
+            "pip._internal.utils.misc.running_under_virtualenv", lambda: True
+        )
+        prefix = os.path.join(str(tmpdir), "env")
+        monkeypatch.setattr(sys, "prefix", prefix)
+
+        inside = normalize_path(os.path.join(prefix, "lib", "pkg"))
+        sibling = normalize_path(os.path.join(str(tmpdir), "env-old", "lib", "pkg"))
+
+        assert is_local(inside)
+        assert not is_local(sibling)
 
 
 class Test_normalize_path:

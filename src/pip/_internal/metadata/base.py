@@ -29,7 +29,7 @@ from pip._internal.models.direct_url import (
     DirectUrlValidationError,
 )
 from pip._internal.utils.egg_link import egg_link_path_from_sys_path
-from pip._internal.utils.misc import is_local, normalize_path
+from pip._internal.utils.misc import is_local, is_path_within, normalize_path
 from pip._internal.utils.urls import url_to_path
 
 from ._json import msg_to_json
@@ -349,13 +349,13 @@ class BaseDistribution(Protocol):
     def in_usersite(self) -> bool:
         if self.installed_location is None or user_site is None:
             return False
-        return self.installed_location.startswith(normalize_path(user_site))
+        return is_path_within(self.installed_location, normalize_path(user_site))
 
     @property
     def in_site_packages(self) -> bool:
         if self.installed_location is None or site_packages is None:
             return False
-        return self.installed_location.startswith(normalize_path(site_packages))
+        return is_path_within(self.installed_location, normalize_path(site_packages))
 
     def is_file(self, path: InfoPath) -> bool:
         """Check whether an entry in the info directory is a file."""

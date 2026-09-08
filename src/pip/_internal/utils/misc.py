@@ -396,6 +396,19 @@ def renames(old: str, new: str) -> None:
             pass
 
 
+def is_path_within(path: str, directory: str) -> bool:
+    """Return True if *path* is *directory* itself or lies inside it.
+
+    A bare ``startswith`` answers True for a sibling whose name merely begins
+    with the directory's name, so the separator has to be part of the test.
+
+    Caution: this function compares the two strings as given. Pass paths that
+    have been through normalize_path, so that case, symlinks and trailing
+    separators have already been settled.
+    """
+    return path == directory or path.startswith(directory.rstrip(os.sep) + os.sep)
+
+
 def is_local(path: str) -> bool:
     """
     Return True if path is within sys.prefix, if we're running in a virtualenv.
@@ -407,7 +420,7 @@ def is_local(path: str) -> bool:
     """
     if not running_under_virtualenv():
         return True
-    return path.startswith(normalize_path(sys.prefix))
+    return is_path_within(path, normalize_path(sys.prefix))
 
 
 def write_output(msg: Any, *args: Any) -> None:
