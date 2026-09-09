@@ -1,0 +1,4 @@
+Fix the gettext extraction of the requirements-file options list. Each option is
+now extracted as its own message with a real source location, instead of one
+merged message plus entries pointing at a truncated path, and the messages use
+MyST syntax so that translating them keeps the cross-reference links.

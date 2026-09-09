@@ -166,12 +166,17 @@ class PipOptions(rst.Directive):
                 self.view_list.append(line, "")
 
     def run(self) -> list[nodes.Node]:
-        node = nodes.paragraph()
+        # A throw-away parent for the nested parse; only its children are
+        # returned. It must not be a paragraph: a paragraph cannot legally
+        # contain the option lists and bullet lists built here, and the gettext
+        # builder treats a paragraph as one translatable message, merging
+        # everything inside it into a single msgid.
+        node = nodes.Element()
         node.document = self.state.document
         self.view_list = ViewList()
         self.process_options()
         self.state.nested_parse(self.view_list, 0, node)
-        return [node]
+        return node.children
 
 
 class PipGeneralOptions(PipOptions):
@@ -222,10 +227,11 @@ class PipReqFileOptionsReference(PipOptions):
         raise KeyError(f"Could not identify prefix of opt {opt_name}")
 
     def process_options(self) -> None:
-        for option in SUPPORTED_OPTIONS:
-            if getattr(option, "deprecated", False):
-                continue
+        source, line = self.state_machine.get_source_and_line(self.lineno)
 
+        for offset, option in enumerate(
+            o for o in SUPPORTED_OPTIONS if not getattr(o, "deprecated", False)
+        ):
             opt = option()
             opt_name = opt._long_opts[0]
             if opt._short_opts:
@@ -238,9 +244,15 @@ class PipReqFileOptionsReference(PipOptions):
             else:
                 prefix = f"{self.determine_opt_prefix(opt_name)}_"
 
+            # This directive is used from a MyST document, so it emits MyST.
+            # Sphinx re-parses a translated message with the parser of the
+            # document the message came from, so a reST role here survives the
+            # untranslated build and then renders as literal text as soon as
+            # the message is translated.
             self.view_list.append(
-                f"*  :ref:`{short_opt_name}{opt_name}<{prefix}{opt_name}>`",
-                "\n",
+                f"*  {{ref}}`{short_opt_name}{opt_name}<{prefix}{opt_name}>`",
+                source,
+                line + offset,
             )
 
 
