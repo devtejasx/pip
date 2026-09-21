@@ -187,10 +187,12 @@ class InstallCommand(RequirementCommand):
             metavar="dir",
             default=None,
             help=(
-                "Install packages into <dir>. "
-                "By default this will not replace existing files/folders in "
-                "<dir>. Use --upgrade to replace existing packages in <dir> "
-                "with new versions."
+                "Install packages into <dir>, which is meant to be an empty "
+                "directory. By default this will not replace existing "
+                "files/folders in <dir>. --upgrade replaces files/folders "
+                "that have the same name as ones being installed, but it "
+                "does not uninstall a version already in <dir>: its metadata, "
+                "and files the new version no longer has, are left behind."
             ),
         )
         cmdoptions.add_target_python_options(self.cmd_opts)

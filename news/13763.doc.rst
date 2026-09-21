@@ -1,0 +1,2 @@
+Clarify in the help for ``--target`` that it is meant for an empty directory, and
+that ``--upgrade`` does not remove a version already installed there.
