@@ -43,6 +43,29 @@ def assert_is_default_cache_dir(value: str) -> None:
     assert "pip" in value
 
 
+@pytest.mark.parametrize(
+    "env",
+    [
+        [("PIP_NO_BINARY", "docopt"), ("PIP_ONLY_BINARY", ":all:")],
+        [("PIP_ONLY_BINARY", ":all:"), ("PIP_NO_BINARY", "docopt")],
+    ],
+)
+def test_env_format_control_does_not_depend_on_environ_order(
+    monkeypatch: pytest.MonkeyPatch, env: list[tuple[str, str]]
+) -> None:
+    """A package given to PIP_NO_BINARY stays an exception to
+    PIP_ONLY_BINARY=:all:, whichever variable os.environ lists first,
+    the same as --only-binary=:all: --no-binary=docopt."""
+    for name, value in env:
+        monkeypatch.setenv(name, value)
+
+    options, _ = create_command("install").parse_args([])
+
+    assert options.format_control.only_binary == {":all:"}
+    assert options.format_control.no_binary == {"docopt"}
+    assert options.format_control.get_allowed_formats("docopt") == frozenset({"source"})
+
+
 class TestOptionPrecedence(AddFakeCommandMixin):
     """
     Tests for confirming our option precedence:

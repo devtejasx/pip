@@ -250,6 +250,18 @@ class ConfigOptionParser(CustomOptionParser):
             for name in override_order
         }
 
+        # Within one source the items have no meaningful order (environment
+        # variables come in os.environ order). --no-binary/--only-binary :all:
+        # clears the package names given to the other option, so apply those
+        # blanket values first and let package-specific exceptions follow, as
+        # they would on a command line written in the usual order.
+        def applies_to_all(item: tuple[str, Any]) -> bool:
+            key, val = item
+            return key in ("no-binary", "only-binary") and ":all:" in str(val)
+
+        for name in override_order:
+            section_items[name].sort(key=lambda item: not applies_to_all(item))
+
         # Yield each group in their override order
         for section in override_order:
             yield from section_items[section]

@@ -1,0 +1,3 @@
+Apply ``PIP_ONLY_BINARY=:all:`` and ``PIP_NO_BINARY=:all:`` before package names given
+to the other variable, so the exceptions are kept whatever order the environment
+lists the variables in, matching the command-line flags.
