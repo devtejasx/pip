@@ -1,0 +1,3 @@
+When installing fails because the disk is full or the disk quota is exceeded,
+say which temporary directory pip uses and that ``TMPDIR`` (``TEMP`` or ``TMP``
+on Windows) moves it.

@@ -1,4 +1,5 @@
 import errno
+import os
 import sys
 import warnings
 from unittest import mock
@@ -189,6 +190,37 @@ def test_create_os_error_message(
     monkeypatch.setattr(install, "running_under_virtualenv", lambda: False)
     msg = create_os_error_message(error, show_traceback, using_user_site)
     assert msg == expected
+
+
+@pytest.mark.parametrize(
+    "error_number",
+    [
+        errno.ENOSPC,
+        pytest.param(
+            getattr(errno, "EDQUOT", None),
+            marks=pytest.mark.skipif(
+                not hasattr(errno, "EDQUOT"), reason="no EDQUOT on this platform"
+            ),
+        ),
+    ],
+)
+def test_create_os_error_message_no_space_names_temp_dir(
+    monkeypatch: pytest.MonkeyPatch, error_number: int
+) -> None:
+    monkeypatch.setattr(install, "running_under_virtualenv", lambda: False)
+    monkeypatch.setattr(install.tempfile, "gettempdir", lambda: "/small/tmp")
+    error = OSError(error_number, os.strerror(error_number), "/small/tmp/pip-x/f")
+
+    msg = create_os_error_message(error, False, False)
+
+    assert msg.startswith("Could not install packages due to an OSError: ")
+    assert "'/small/tmp/pip-x/f'" in msg
+    assert msg.endswith(
+        "HINT: The disk is full or the disk quota was exceeded. pip downloads, "
+        "unpacks and builds packages in the temporary directory '/small/tmp'; "
+        "set the TMPDIR environment variable (TEMP or TMP on Windows) to use a "
+        "directory with more space.\n"
+    )
 
 
 def test_prevent_further_imports_warns_on_import() -> None:
