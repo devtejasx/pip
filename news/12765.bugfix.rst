@@ -1,0 +1,2 @@
+Indent the continuation lines of multi-line fields in ``pip show``, such as
+a multi-line ``License``, so the output stays valid RFC 822 header format.

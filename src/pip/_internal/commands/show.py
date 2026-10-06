@@ -178,6 +178,15 @@ def search_packages_info(
         )
 
 
+def _fold(value: str) -> str:
+    """Fold a multi-line value into an RFC 822 header continuation.
+
+    Metadata fields such as License may span several lines. Printed as is,
+    the second line would end the header block for a mail-header parser.
+    """
+    return "\n        ".join(value.splitlines())
+
+
 def print_results(
     distributions: Iterable[_PackageInfo],
     list_files: bool,
@@ -199,14 +208,14 @@ def print_results(
 
         write_output("Name: %s", dist.name)
         write_output("Version: %s", dist.version)
-        write_output("Summary: %s", dist.summary)
-        write_output("Home-page: %s", dist.homepage)
-        write_output("Author: %s", dist.author)
-        write_output("Author-email: %s", dist.author_email)
+        write_output("Summary: %s", _fold(dist.summary))
+        write_output("Home-page: %s", _fold(dist.homepage))
+        write_output("Author: %s", _fold(dist.author))
+        write_output("Author-email: %s", _fold(dist.author_email))
         if metadata_version_tuple >= (2, 4) and dist.license_expression:
-            write_output("License-Expression: %s", dist.license_expression)
+            write_output("License-Expression: %s", _fold(dist.license_expression))
         else:
-            write_output("License: %s", dist.license)
+            write_output("License: %s", _fold(dist.license))
         write_output("Location: %s", dist.location)
         if dist.editable_project_location is not None:
             write_output(

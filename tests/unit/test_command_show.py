@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import email.parser
 import logging
 
 import pytest
@@ -52,3 +53,25 @@ def test_print_results_license_for_metadata_version(
     messages = [record.getMessage() for record in caplog.records]
     assert expected in messages
     assert unexpected not in messages
+
+
+def test_print_results_folds_multiline_fields(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    info = _package_info("2.1")._replace(
+        license="Copyright (c) Example\r\n\r\nAll rights reserved.",
+        author="First Author\nSecond Author",
+    )
+
+    assert print_results([info], list_files=False, verbose=False)
+
+    output = "\n".join(record.getMessage() for record in caplog.records) + "\n"
+    headers = email.parser.Parser().parsestr(output, headersonly=True)
+    assert headers["License"] == (
+        "Copyright (c) Example\n        \n        All rights reserved."
+    )
+    assert headers["Author"] == "First Author\n        Second Author"
+    # Fields after the multi-line ones are still parsed.
+    assert headers["Location"] == "/loc"
+    assert headers["Required-by"] == ""
