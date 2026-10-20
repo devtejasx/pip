@@ -1,0 +1,2 @@
+Fix installing a wheel with data files into ``--prefix /`` (or a drive root on
+Windows), which failed with "trying to install outside the target directory".

@@ -534,11 +534,29 @@ def test_unpack_tar_unicode(tmpdir: Path) -> None:
         (("//srv/env/bin", "//srv/env/outside"), False),
         # Test target on a different drive
         (("C:\\env\\bin", "D:\\outside"), False),
+        # Test target within the filesystem root
+        (("/", "/share/jupyter/kernel.json"), True),
+        # Test target equal to the filesystem root
+        (("/", "/"), True),
     ],
 )
 def test_is_within_directory(args: tuple[str, str], expected: bool) -> None:
     result = is_within_directory(*args)
     assert result == expected
+
+
+@pytest.mark.skipif("sys.platform != 'win32'")
+@pytest.mark.parametrize(
+    "args, expected",
+    [
+        # Test target within a drive root
+        (("C:\\", "C:\\share\\kernel.json"), True),
+        # Test target on another drive than the root
+        (("C:\\", "D:\\share\\kernel.json"), False),
+    ],
+)
+def test_is_within_drive_root(args: tuple[str, str], expected: bool) -> None:
+    assert is_within_directory(*args) == expected
 
 
 @pytest.mark.parametrize(
