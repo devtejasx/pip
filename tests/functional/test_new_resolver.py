@@ -400,8 +400,8 @@ def test_new_resolver_requires_python_error(script: PipTestEnvironment) -> None:
 
     message = (
         "Package 'base' requires a different Python: "
-        "{}.{}.{} not in '<2'".format(*sys.version_info[:3])
-    )
+        "it requires '<2', but the Python version is {}.{}.{}"
+    ).format(*sys.version_info[:3])
     assert message in result.stderr, str(result)
 
 
@@ -1161,8 +1161,8 @@ def test_new_resolver_no_deps_checks_requires_python(
 
     message = (
         "Package 'base' requires a different Python: "
-        "{}.{}.{} not in '<2'".format(*sys.version_info[:3])
-    )
+        "it requires '<2', but the Python version is {}.{}.{}"
+    ).format(*sys.version_info[:3])
     assert message in result.stderr
 
 

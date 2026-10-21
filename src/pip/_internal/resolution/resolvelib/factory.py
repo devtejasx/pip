@@ -673,11 +673,15 @@ class Factory:
             specifier = str(causes[0].requirement.specifier)
             message = (
                 f"Package {causes[0].parent.name!r} requires a different "
-                f"Python: {version} not in {specifier!r}"
+                f"Python: it requires {specifier!r}, but the Python version "
+                f"is {version}"
             )
             return UnsupportedPythonVersion(message)
 
-        message = f"Packages require a different Python. {version} not in:"
+        message = (
+            f"Packages require a different Python. The Python version is "
+            f"{version}, which is not in:"
+        )
         for cause in causes:
             package = cause.parent.format_for_error()
             specifier = str(cause.requirement.specifier)

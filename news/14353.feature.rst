@@ -1,0 +1,2 @@
+Make the Requires-Python mismatch error say which versions it requires and which
+Python version is in use, instead of ``3.14.4 not in '>=3.15'``.

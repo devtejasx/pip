@@ -415,8 +415,9 @@ class RequirementCommand(IndexGroupCommand):
                     version_info=target_python.py_version_info,
                 ):
                     raise UnsupportedPythonVersion(
-                        f"Script {script!r} requires a different Python: "
-                        f"{target_python.py_version} not in {script_requires_python!r}"
+                        f"Script {script!r} requires a different Python: it "
+                        f"requires {script_requires_python!r}, but the Python "
+                        f"version is {target_python.py_version}"
                     )
 
             for req in script_metadata.get("dependencies", []):

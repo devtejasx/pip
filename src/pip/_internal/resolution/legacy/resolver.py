@@ -103,8 +103,8 @@ def _check_dist_requires_python(
         return
 
     raise UnsupportedPythonVersion(
-        f"Package {dist.raw_name!r} requires a different Python: "
-        f"{version} not in {requires_python!r}"
+        f"Package {dist.raw_name!r} requires a different Python: it requires "
+        f"{requires_python!r}, but the Python version is {version}"
     )
 
 

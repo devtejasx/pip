@@ -180,7 +180,7 @@ class TestCheckDistRequiresPython:
             )
         assert str(exc.value) == (
             "Package 'my-project' requires a different Python: "
-            "3.6.5 not in '==3.6.4'"
+            "it requires '==3.6.4', but the Python version is 3.6.5"
         )
 
     def test_incompatible_with_ignore_requires(
