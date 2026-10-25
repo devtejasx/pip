@@ -8,6 +8,7 @@ import pytest
 from pip._internal.exceptions import InvalidEggFragment, PipError
 from pip._internal.models.link import (
     Link,
+    MetadataFile,
     as_path_component,
     join_within_directory,
     links_equivalent,
@@ -124,6 +125,24 @@ class TestLink:
 
     def test_ext_query(self) -> None:
         assert ".whl" == Link("http://yo/wheel.whl?a=b").ext
+
+    @pytest.mark.parametrize(
+        "url, expected",
+        [
+            ("http://yo/wheel.whl", "http://yo/wheel.whl.metadata"),
+            ("http://yo/wheel.whl#sha256=abc", "http://yo/wheel.whl.metadata"),
+            ("http://yo/wheel.whl?token=abc", "http://yo/wheel.whl.metadata?token=abc"),
+            (
+                "http://yo/wheel.whl?token=abc#sha256=abc",
+                "http://yo/wheel.whl.metadata?token=abc",
+            ),
+        ],
+    )
+    def test_metadata_link_url(self, url: str, expected: str) -> None:
+        link = Link(url, metadata_file_data=MetadataFile(None))
+        metadata_link = link.metadata_link()
+        assert metadata_link is not None
+        assert metadata_link.url == expected
 
     def test_is_wheel(self) -> None:
         assert Link("http://yo/wheel.whl").is_wheel

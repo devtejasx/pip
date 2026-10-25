@@ -1,0 +1,2 @@
+Keep the query string of a distribution URL when building its PEP 658
+metadata URL, instead of appending ``.metadata`` to the query.
